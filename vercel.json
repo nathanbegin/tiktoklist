@@ -2,5 +2,11 @@
   "functions": {
     "api/video.js": { "maxDuration": 60 },
     "api/bibliotheque.js": { "maxDuration": 30 }
-  }
+  },
+  "headers": [
+    {
+      "source": "/((?!api/).*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ]
 }
