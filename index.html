@@ -60,6 +60,14 @@ select{font:500 14px var(--f-body);padding:10px;border-radius:10px;border:1px so
 .meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted)}
 .count{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
+@media (max-width:640px){
+  .bar .tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;width:100%;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+  .bar .tags::-webkit-scrollbar{display:none}
+  .bar .chip{flex:none}
+  .bar .tags{transition:max-height .2s ease,opacity .2s ease;max-height:40px}
+  .bar.compact .tags{max-height:0;opacity:0;overflow:hidden;pointer-events:none}
+  .bar.compact{gap:6px}
+}
 .chip{font:500 12.5px var(--f-mono);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer}
 .chip b{color:var(--muted);font-weight:400;margin-left:4px}
 .chip.on{background:var(--cyan);border-color:var(--cyan);color:var(--bg)}
@@ -261,4 +269,4 @@ dialog#reglages::backdrop{background:rgb(10 12 18 / .55)}
     </div>
   </form>
 </dialog>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>

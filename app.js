@@ -340,6 +340,22 @@
     state.tag = state.tag === el.dataset.tag ? "" : el.dataset.tag; state.shown = PAGE; render();
   });
 
+  // ---------- Mobile : cacher les hashtags en défilant vers le bas ----------
+  const barre = $(".bar"), mobile = window.matchMedia("(max-width: 640px)");
+  let dernierY = window.scrollY, rafBarre = 0;
+  function majBarre(){
+    rafBarre = 0;
+    const y = window.scrollY, dy = y - dernierY;
+    if (!mobile.matches || y < 80) barre.classList.remove("compact");
+    else if (dy > 6) barre.classList.add("compact");     // vers le bas
+    else if (dy < -6) barre.classList.remove("compact"); // vers le haut
+    if (Math.abs(dy) > 6 || y < 80) dernierY = y;
+  }
+  window.addEventListener("scroll", () => { if (!rafBarre) rafBarre = requestAnimationFrame(majBarre); }, { passive:true });
+  mobile.addEventListener?.("change", majBarre);
+  // Toucher la recherche réaffiche les hashtags
+  $("#q").addEventListener("focus", () => barre.classList.remove("compact"));
+
   // ---------- Récupération des légendes (fonction serveur /api/video) ----------
   let enCours = false, arret = false, sauter = null;
 
