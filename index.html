@@ -95,7 +95,7 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
 .enrich-txt strong{font-family:var(--f-display);font-size:17px}
 .progress{grid-column:1/-1;grid-row:2;height:6px;background:var(--line);border-radius:99px;overflow:hidden}
 .progress span{display:block;height:100%;width:0;background:var(--cyan);transition:width .3s}
-@media (max-width:520px){.enrich{grid-template-columns:1fr}.enrich .btn{justify-self:start}.progress{grid-row:auto}}
+@media (max-width:520px){.enrich{grid-template-columns:1fr}.enrich .actions{justify-self:start}.progress{grid-row:auto}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -126,7 +126,10 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
       <span class="note" id="enrichNote"></span>
     </div>
     <div class="progress" aria-hidden="true"><span id="enrichBar"></span></div>
-    <button class="btn primary" id="enrichBtn" type="button">Récupérer les légendes</button>
+    <div class="actions">
+      <button class="btn" id="skipBtn" type="button" hidden>Réessayer maintenant</button>
+      <button class="btn primary" id="enrichBtn" type="button">Récupérer les légendes</button>
+    </div>
   </section>
 
   <div class="bar">
@@ -366,6 +369,22 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
   const LOT = 100; // doit rester ≤ MAX_IDS de api/video.js
   let enCours = false, arret = false;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const ATTENTE_MIN = 5, ATTENTE_MAX = 45; // secondes
+  let sauter = null;
+  // Attente avec compte à rebours ; « Réessayer maintenant » ou « Arrêter » l'écourtent.
+  async function attendre(secondes, raison){
+    const skip = $("#skipBtn");
+    skip.hidden = false;
+    await new Promise(fin => {
+      let reste = secondes;
+      const maj = () => updateEnrich(`${raison}. Nouvel essai dans ${reste} s…`);
+      maj();
+      const iv = setInterval(() => { if (--reste <= 0 || arret) stop(); else maj(); }, 1000);
+      function stop(){ clearInterval(iv); sauter = null; fin(); }
+      sauter = stop;
+    });
+    skip.hidden = true;
+  }
 
   function updateEnrich(msg){
     const reste = lib.filter(v => v.statut === "brut").length;
@@ -381,7 +400,7 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
   }
 
   async function enrichir(){
-    if (enCours){ arret = true; return; }
+    if (enCours){ arret = true; if (sauter) sauter(); return; }
     enCours = true; arret = false; updateEnrich();
     let attente = 0, echecs = 0;
     while (!arret){
@@ -409,9 +428,10 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
       }
       save(); render();
       if (data.rateLimited || !progres){
-        attente = Math.min((attente || 15) * 2, 240);
-        updateEnrich(`TikTok ralentit les requêtes. Nouvel essai dans ${attente} s…`);
-        await sleep(attente * 1000);
+        // Délai croissant : 5 s, 8 s, 12 s, 18 s… plafonné à 45 s. Remis à zéro dès qu'un lot avance.
+        attente = attente ? Math.min(Math.ceil(attente * 1.5), ATTENTE_MAX) : ATTENTE_MIN;
+        const raison = data.rateLimited ? "TikTok limite les requêtes" : "TikTok n’a renvoyé aucune légende pour ce lot";
+        await attendre(attente, raison);
       } else attente = 0;
     }
     enCours = false; buildYears(); render();
@@ -419,6 +439,7 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
     if (!reste) showBanner(`Terminé : ${lib.filter(v => v.statut === "ok").length} vidéos avec légende, ${lib.filter(v => v.statut === "indisponible").length} indisponibles.`);
   }
   $("#enrichBtn").addEventListener("click", enrichir);
+  $("#skipBtn").addEventListener("click", () => sauter && sauter());
 
   $("#saveBtn").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify({format:"videotheque-tiktok/1", videos: lib}, null, 1)], {type:"application/json"});
