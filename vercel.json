@@ -1,0 +1,3 @@
+{
+  "functions": { "api/oembed.js": { "maxDuration": 60 } }
+}

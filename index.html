@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vidéothèque TikTok</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* Layout : barre de recherche collante, filtres en ligne, grille de fiches vidéo façon planches-contact */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --ink:#171a24; --muted:#5d6475; --line:#dde0e8;
+  --accent:#e0245e; --accent-ink:#ffffff; --accent-soft:#fde7ee; --cyan:#0b8a9a; --cyan-soft:#e0f4f6;
+  --warn-soft:#fff4dc; --warn-ink:#7a5300;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11131a; --surface:#1a1d27; --ink:#eceef4; --muted:#9aa1b2; --line:#2b2f3c;
+  --accent:#ff4f86; --accent-ink:#1a0710; --accent-soft:#3a1626; --cyan:#4cc8d6; --cyan-soft:#12313a;
+  --warn-soft:#3a2e12; --warn-ink:#f2c86b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11131a; --surface:#1a1d27; --ink:#eceef4; --muted:#9aa1b2; --line:#2b2f3c;
+  --accent:#ff4f86; --accent-ink:#1a0710; --accent-soft:#3a1626; --cyan:#4cc8d6; --cyan-soft:#12313a;
+  --warn-soft:#3a2e12; --warn-ink:#f2c86b; color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-block:env(safe-area-inset-top,0px) env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 60px}
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,5vw,40px);letter-spacing:-.02em;line-height:1;margin:0;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:6px 0 0;max-width:60ch}
+.btn{font:600 14px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 14px;border-radius:8px;cursor:pointer;display:inline-flex;gap:8px;align-items:center;text-decoration:none}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,.chip:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.drop{border:2px dashed var(--line);border-radius:12px;padding:18px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;background:var(--surface);margin-bottom:16px;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop p{margin:0;max-width:70ch;min-width:0}
+.drop strong{font-family:var(--f-display);font-size:17px}
+.note{font-size:13px;color:var(--muted)}
+.banner{background:var(--warn-soft);color:var(--warn-ink);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:14px}
+.banner code,.note code{font-family:var(--f-mono);font-size:12.5px}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line)}
+.searchrow{display:flex;gap:8px;flex-wrap:wrap}
+#q{flex:1 1 280px;min-width:0;font:500 17px var(--f-body);padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+select{font:500 14px var(--f-body);padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{font:600 13px var(--f-body);border:0;background:transparent;color:var(--muted);padding:9px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted)}
+.count{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:500 12.5px var(--f-mono);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer}
+.chip b{color:var(--muted);font-weight:400;margin-left:4px}
+.chip.on{background:var(--cyan);border-color:var(--cyan);color:var(--bg)}
+.chip.on b{color:var(--bg)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card .who{display:flex;justify-content:space-between;gap:8px;align-items:baseline;min-width:0}
+.card .who a{font-weight:600;color:var(--ink);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .who a:hover{color:var(--accent)}
+.card .cap{margin:0;overflow-wrap:anywhere;flex:1}
+.card .cap.vide{color:var(--muted);font-style:italic}
+.card mark{background:var(--accent-soft);color:inherit;border-radius:3px;padding:0 2px}
+.card .h{color:var(--cyan);cursor:pointer}
+.card .h:hover{text-decoration:underline}
+.card .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px;font-size:12.5px}
+.pill{font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.06em;border-radius:5px;padding:2px 7px}
+.pill.fav{background:var(--accent-soft);color:var(--accent)}
+.pill.like{background:var(--cyan-soft);color:var(--cyan)}
+.pill.autre{background:var(--line);color:var(--muted)}
+.date{font-family:var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.open{font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap}
+.open:hover{text-decoration:underline}
+.empty{text-align:center;color:var(--muted);padding:48px 16px}
+.more{display:flex;justify-content:center;margin-top:18px}
+details.help{margin-top:28px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+details.help summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:17px}
+details.help ol{padding-left:20px;max-width:75ch}
+details.help pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto;font:13px var(--f-mono)}
+.confirm{display:inline-flex;gap:6px;align-items:center;font-size:13px}
+.enrich{display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:center;background:var(--surface);border:1px solid var(--cyan);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.enrich-txt{display:flex;flex-direction:column;min-width:0}
+.enrich-txt strong{font-family:var(--f-display);font-size:17px}
+.progress{grid-column:1/-1;grid-row:2;height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+.progress span{display:block;height:100%;width:0;background:var(--cyan);transition:width .3s}
+@media (max-width:520px){.enrich{grid-template-columns:1fr}.enrich .btn{justify-self:start}.progress{grid-row:auto}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Vidéothèque <span>TikTok</span></h1>
+      <p class="sub">Tes favoris et tes vidéos aimées, cherchables par légende, hashtag ou créateur. Tout reste dans ton navigateur.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="saveBtn" type="button">Sauvegarder (JSON)</button>
+      <span id="clearZone"><button class="btn" id="clearBtn" type="button">Vider la bibliothèque</button></span>
+    </div>
+  </header>
+
+  <div class="drop" id="drop">
+    <p><strong>Dépose ton fichier ici</strong><br>
+      <span class="note">Accepte l’export TikTok (<code>user_data_tiktok.json</code> ou le <code>.zip</code>) et le fichier enrichi <code>tiktok_enrichi.json</code>. Les imports s’additionnent.</span></p>
+    <label class="btn primary" for="file">Choisir un fichier</label>
+    <input type="file" id="file" accept=".json,.zip,application/json,application/zip" hidden>
+  </div>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="enrich" id="enrich" hidden>
+    <div class="enrich-txt">
+      <strong id="enrichTitle">Légendes à récupérer</strong>
+      <span class="note" id="enrichNote"></span>
+    </div>
+    <div class="progress" aria-hidden="true"><span id="enrichBar"></span></div>
+    <button class="btn primary" id="enrichBtn" type="button">Récupérer les légendes</button>
+  </section>
+
+  <div class="bar">
+    <div class="searchrow">
+      <input id="q" type="search" placeholder="Rechercher : recette, #diy, @créateur…" autocomplete="off" aria-label="Rechercher">
+      <div class="seg" role="group" aria-label="Source">
+        <button type="button" data-src="tout" aria-pressed="true">Tout</button>
+        <button type="button" data-src="favoris" aria-pressed="false">Favoris</button>
+        <button type="button" data-src="aimees" aria-pressed="false">Aimées</button>
+      </div>
+      <select id="year" aria-label="Année"><option value="">Toutes les années</option></select>
+      <select id="sort" aria-label="Tri">
+        <option value="desc">Plus récentes</option>
+        <option value="asc">Plus anciennes</option>
+        <option value="auteur">Créateur A→Z</option>
+      </select>
+    </div>
+    <div class="meta">
+      <span class="count" id="count"></span>
+      <div class="tags" id="tags"></div>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="more"><button class="btn" id="moreBtn" type="button" hidden>Afficher plus</button></div>
+
+  <details class="help" id="help">
+    <summary>Obtenir son export TikTok</summary>
+    <ol>
+      <li>TikTok → Profil → ☰ → Paramètres → Compte → <em>Télécharger tes données</em> → format <strong>JSON</strong>. Le fichier arrive en général en quelques heures à quelques jours.</li>
+      <li>Dépose le fichier (ou le .zip) dans cette page.</li>
+      <li>Clique sur <strong>Récupérer les légendes</strong>. Le serveur interroge TikTok par lots ; tu peux fermer la page et reprendre plus tard, le progrès est gardé.</li>
+    </ol>
+    <p class="note">Les vidéos supprimées ou devenues privées restent listées avec leur date, sans légende. La bibliothèque est gardée dans ce navigateur seulement : utilise « Sauvegarder » pour la transférer sur un autre appareil.</p>
+  </details>
+</div>
+
+<script>
+(() => {
+  const KEY = "videotheque-tiktok-v1";
+  const PAGE = 60;
+  const $ = s => document.querySelector(s);
+  const TAG_RE = /#([\p{L}\p{N}_]+)/gu;
+  const norm = s => (s || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+  const EXEMPLES = [
+    {id:"7300000000000000001", sources:{favoris:"2026-09-14 20:11:02"}, auteur:"Atelier Bois Franc", pseudo:"atelierboisfranc", legende:"Moulure murale en 30 minutes, coupe d’onglet parfaite à chaque fois #diy #moulure #renovation"},
+    {id:"7300000000000000002", sources:{favoris:"2026-08-02 12:40:51", aimees:"2026-08-02 12:40:49"}, auteur:"Cuisine de semaine", pseudo:"cuisinedesemaine", legende:"Pâté chinois revisité, prêt en 25 min #recette #souper #quebec"},
+    {id:"7300000000000000003", sources:{aimees:"2026-06-21 09:03:10"}, auteur:"ESP Hacks", pseudo:"esphacks", legende:"ESP32-C6 + Zigbee dans Home Assistant, sans hub #esp32 #homeassistant #zigbee"},
+    {id:"7300000000000000004", sources:{favoris:"2025-12-30 17:22:45"}, auteur:"Patio Pro", pseudo:"patiopro", legende:"Espacement des solives pour un patio en composite : ce qu’on oublie souvent #patio #deck #diy"},
+    {id:"7300000000000000005", sources:{favoris:"2025-11-03 08:15:00"}, statut:"indisponible"},
+    {id:"7300000000000000006", sources:{aimees:"2025-07-19 22:01:33"}, auteur:"Route 132", pseudo:"route132", legende:"Trois arrêts à ne pas manquer en Gaspésie #voyage #gaspesie #quebec"}
+  ].map(v => ({...v, hashtags: tagsOf(v.legende), statut: v.statut || "ok"}));
+
+  let lib = load();
+  let exemple = !lib;
+  if (!lib) lib = EXEMPLES;
+  let state = {q:"", src:"tout", year:"", sort:"desc", tag:"", shown:PAGE};
+
+  function tagsOf(t){ return [...new Set([...(t||"").matchAll(TAG_RE)].map(m => m[1].toLowerCase()))]; }
+  function load(){ try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch { return null; } }
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(lib)); return true; } catch { return false; } }
+
+  // ---------- Import ----------
+  function sourceOf(path){
+    const c = path.join(" ").toLowerCase();
+    if (c.includes("favorite") && c.includes("video")) return "favoris";
+    if (c.includes("like")) return "aimees";
+    return null; // historique, partages : ignorés dans l'appli
+  }
+  function walk(node, path, out){
+    if (Array.isArray(node)){
+      const src = sourceOf(path);
+      for (const el of node){
+        if (el && typeof el === "object"){
+          const link = el.Link || el.link || el.VideoLink, date = el.Date || el.date;
+          const m = link && /\/video\/(\d+)/.exec(link);
+          if (m && src) out.push({id:m[1], lien:link, date, source:src});
+          else walk(el, path, out);
+        }
+      }
+    } else if (node && typeof node === "object"){
+      for (const [k,v] of Object.entries(node)) walk(v, path.concat(k), out);
+    }
+  }
+  function fromExport(json){
+    const raw = []; walk(json, [], raw);
+    const map = new Map();
+    for (const r of raw){
+      const v = map.get(r.id) || {id:r.id, lien:r.lien, sources:{}, statut:"brut", hashtags:[]};
+      v.sources[r.source] = r.date; map.set(r.id, v);
+    }
+    return [...map.values()];
+  }
+  function fromEnriched(json){
+    return (json.videos || []).map(v => ({...v, hashtags: v.hashtags && v.hashtags.length ? v.hashtags : tagsOf(v.legende)}));
+  }
+  function merge(items){
+    if (exemple){ lib = []; exemple = false; }
+    const map = new Map(lib.map(v => [v.id, v]));
+    let added = 0, enriched = 0;
+    for (const n of items){
+      const o = map.get(n.id);
+      if (!o){ map.set(n.id, n); added++; continue; }
+      o.sources = {...o.sources, ...n.sources};
+      if (n.statut === "ok" && o.statut !== "ok"){ Object.assign(o, {legende:n.legende, auteur:n.auteur, pseudo:n.pseudo, hashtags:n.hashtags, statut:"ok"}); enriched++; }
+      else if (n.statut === "indisponible" && o.statut === "brut") o.statut = "indisponible";
+    }
+    lib = [...map.values()];
+    return {added, enriched};
+  }
+  async function readFile(file){
+    let text;
+    if (/\.zip$/i.test(file.name)){
+      if (!window.JSZip) throw new Error("Lecture des .zip indisponible. Décompresse le fichier et dépose le .json.");
+      const zip = await JSZip.loadAsync(file);
+      const entry = Object.values(zip.files).find(f => !f.dir && /\.json$/i.test(f.name));
+      if (!entry) throw new Error("Le .zip ne contient pas de .json. Redemande l’export TikTok au format JSON (pas TXT).");
+      text = await entry.async("string");
+    } else text = await file.text();
+    let json;
+    try { json = JSON.parse(text.replace(/^﻿/, "")); }
+    catch { throw new Error("Ce fichier n’est pas du JSON valide. Choisis l’export au format JSON dans TikTok."); }
+    const items = json.format === "videotheque-tiktok/1" ? fromEnriched(json) : fromExport(json);
+    if (!items.length) throw new Error("Aucune vidéo favorite ou aimée trouvée dans ce fichier.");
+    const r = merge(items);
+    const ok = save();
+    const brut = lib.filter(v => v.statut === "brut").length;
+    let msg = `${file.name} importé : ${r.added} nouvelles vidéos${r.enriched ? `, ${r.enriched} enrichies` : ""}. Total : ${lib.length}.`;
+    if (brut) msg += ` ${brut} vidéos n’ont pas encore de légende.`;
+    if (!ok) msg += " Attention : ce navigateur n’a pas pu sauvegarder la bibliothèque, elle disparaîtra à la fermeture.";
+    showBanner(msg);
+    state.shown = PAGE; buildYears(); render();
+  }
+  function showBanner(t){ const b = $("#banner"); b.textContent = t; b.hidden = !t; }
+
+  const drop = $("#drop"), fileIn = $("#file");
+  fileIn.addEventListener("change", () => { [...fileIn.files].forEach(f => readFile(f).catch(e => showBanner(e.message))); fileIn.value = ""; });
+  ["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", ev => [...ev.dataTransfer.files].forEach(f => readFile(f).catch(e => showBanner(e.message))));
+
+  // Vider, avec confirmation intégrée à la page
+  const clearZone = $("#clearZone");
+  function resetClear(){ clearZone.innerHTML = '<button class="btn" id="clearBtn" type="button">Vider la bibliothèque</button>'; $("#clearBtn").onclick = askClear; }
+  function askClear(){
+    clearZone.innerHTML = '<span class="confirm">Tout effacer ? <button class="btn primary" type="button" id="yes">Effacer</button><button class="btn" type="button" id="no">Annuler</button></span>';
+    $("#yes").onclick = () => { lib = []; exemple = false; save(); showBanner("Bibliothèque vidée."); buildYears(); render(); resetClear(); };
+    $("#no").onclick = resetClear;
+  }
+  resetClear();
+
+  // ---------- Recherche ----------
+  const dateOf = v => { const d = Object.values(v.sources || {}).filter(Boolean).sort(); return d.length ? d[d.length-1] : ""; };
+  function buildYears(){
+    const ys = [...new Set(lib.map(v => dateOf(v).slice(0,4)).filter(Boolean))].sort().reverse();
+    $("#year").innerHTML = '<option value="">Toutes les années</option>' + ys.map(y => `<option value="${y}">${y}</option>`).join("");
+    if (!ys.includes(state.year)) state.year = "";
+    $("#year").value = state.year;
+  }
+  function filtered(){
+    const terms = norm(state.q).split(/\s+/).filter(Boolean);
+    let out = lib.filter(v => {
+      if (state.src !== "tout" && !(state.src in (v.sources||{}))) return false;
+      if (state.year && !dateOf(v).startsWith(state.year)) return false;
+      if (state.tag && !(v.hashtags||[]).includes(state.tag)) return false;
+      if (!terms.length) return true;
+      const hay = norm(`${v.legende||""} ${v.auteur||""} @${v.pseudo||""} ${(v.hashtags||[]).map(t=>"#"+t).join(" ")}`);
+      return terms.every(t => hay.includes(t));
+    });
+    const s = state.sort;
+    out.sort((a,b) => s === "auteur" ? (a.auteur||"~").localeCompare(b.auteur||"~","fr") : s === "asc" ? dateOf(a).localeCompare(dateOf(b)) : dateOf(b).localeCompare(dateOf(a)));
+    return out;
+  }
+  const esc = s => (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  function highlight(text){
+    let h = esc(text).replace(/#([\p{L}\p{N}_]+)/gu, (m,t) => `<span class="h" data-tag="${t.toLowerCase()}">${m}</span>`);
+    const terms = state.q.trim().split(/\s+/).filter(t => t.length > 1).map(t => t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
+    if (terms.length) h = h.replace(new RegExp(`(?![^<]*>)(${terms.join("|")})`, "giu"), "<mark>$1</mark>");
+    return h;
+  }
+  function card(v){
+    const user = v.pseudo ? `@${v.pseudo}` : "";
+    const url = `https://www.tiktok.com/${v.pseudo ? "@"+encodeURIComponent(v.pseudo) : "@"}/video/${v.id}`;
+    const pills = [];
+    if (v.sources?.favoris !== undefined) pills.push('<span class="pill fav">Favori</span>');
+    if (v.sources?.aimees !== undefined) pills.push('<span class="pill like">Aimée</span>');
+    const cap = v.statut === "ok" ? `<p class="cap">${highlight(v.legende) || '<span class="cap vide">Sans légende</span>'}</p>`
+      : `<p class="cap vide">${v.statut === "indisponible" ? "Vidéo supprimée ou privée" : "Légende pas encore récupérée"} · ID ${v.id}</p>`;
+    return `<article class="card">
+      <div class="who">${v.auteur ? `<a href="https://www.tiktok.com/@${encodeURIComponent(v.pseudo||"")}" target="_blank" rel="noopener" title="${esc(user)}">${esc(v.auteur)}</a>` : `<span class="note">Créateur inconnu</span>`}<span class="note">${esc(user)}</span></div>
+      ${cap}
+      <div class="foot"><span style="display:flex;gap:6px;align-items:center">${pills.join("")}<span class="date">${esc(dateOf(v).slice(0,10))}</span></span>
+      <a class="open" href="${url}" target="_blank" rel="noopener">Ouvrir ↗</a></div></article>`;
+  }
+  function renderTags(list){
+    const counts = new Map();
+    list.forEach(v => (v.hashtags||[]).forEach(t => counts.set(t, (counts.get(t)||0)+1)));
+    const top = [...counts].sort((a,b) => b[1]-a[1]).slice(0, 14);
+    if (state.tag && !top.some(([t]) => t === state.tag)) top.unshift([state.tag, counts.get(state.tag)||0]);
+    $("#tags").innerHTML = top.map(([t,n]) => `<button type="button" class="chip${t===state.tag?" on":""}" data-tag="${esc(t)}">#${esc(t)}<b>${n}</b></button>`).join("");
+  }
+  function render(){
+    const list = filtered();
+    const n = list.length;
+    $("#count").textContent = `${n.toLocaleString("fr-CA")} vidéo${n>1?"s":""} sur ${lib.length.toLocaleString("fr-CA")}${exemple ? " · données d’exemple" : ""}`;
+    renderTags(list);
+    $("#grid").innerHTML = n ? list.slice(0, state.shown).map(card).join("")
+      : `<div class="empty" style="grid-column:1/-1">${lib.length ? "Aucun résultat. Essaie un autre mot ou retire un filtre." : "Bibliothèque vide. Dépose ton export TikTok ci-dessus pour commencer."}</div>`;
+    $("#moreBtn").hidden = n <= state.shown;
+    $("#moreBtn").textContent = `Afficher plus (${(n - state.shown).toLocaleString("fr-CA")} restantes)`;
+    updateEnrich();
+  }
+
+  let t;
+  $("#q").addEventListener("input", e => { clearTimeout(t); t = setTimeout(() => { state.q = e.target.value; state.shown = PAGE; render(); }, 120); });
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    state.src = b.dataset.src; state.shown = PAGE; render();
+  }));
+  $("#year").addEventListener("change", e => { state.year = e.target.value; state.shown = PAGE; render(); });
+  $("#sort").addEventListener("change", e => { state.sort = e.target.value; render(); });
+  $("#moreBtn").addEventListener("click", () => { state.shown += PAGE; render(); });
+  document.addEventListener("click", e => {
+    const el = e.target.closest("[data-tag]"); if (!el) return;
+    state.tag = state.tag === el.dataset.tag ? "" : el.dataset.tag; state.shown = PAGE; render();
+  });
+
+  // ---------- Récupération des légendes (fonction serveur /api/oembed) ----------
+  const LOT = 20;
+  let enCours = false, arret = false;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function updateEnrich(msg){
+    const reste = lib.filter(v => v.statut === "brut").length;
+    const total = lib.filter(v => v.statut !== "exemple").length;
+    const fait = total - reste;
+    $("#enrich").hidden = exemple || (!reste && !enCours);
+    $("#enrichTitle").textContent = enCours ? "Récupération en cours…" : `${reste.toLocaleString("fr-CA")} légendes à récupérer`;
+    $("#enrichNote").textContent = msg || (enCours
+      ? `${fait.toLocaleString("fr-CA")} / ${total.toLocaleString("fr-CA")} traitées. Le progrès est sauvegardé au fur et à mesure.`
+      : `Environ ${Math.max(1, Math.ceil(reste / 60))} min. Tu peux arrêter et reprendre plus tard.`);
+    $("#enrichBar").style.width = total ? `${(fait / total) * 100}%` : "0";
+    $("#enrichBtn").textContent = enCours ? "Arrêter" : (fait ? "Reprendre" : "Récupérer les légendes");
+  }
+
+  async function enrichir(){
+    if (enCours){ arret = true; return; }
+    enCours = true; arret = false; updateEnrich();
+    let attente = 0, echecs = 0;
+    while (!arret){
+      const lot = lib.filter(v => v.statut === "brut").slice(0, LOT);
+      if (!lot.length) break;
+      let data;
+      try {
+        const r = await fetch(`/api/oembed?ids=${lot.map(v => v.id).join(",")}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        data = await r.json();
+        echecs = 0;
+      } catch (e) {
+        if (++echecs >= 3){ updateEnrich(`Le serveur ne répond pas (${e.message}). Réessaie dans quelques minutes.`); break; }
+        await sleep(3000); continue;
+      }
+      let progres = 0;
+      for (const v of lot){
+        const r = data.results?.[v.id];
+        if (!r || r.statut === "erreur") continue; // reste « brut », sera réessayée
+        progres++;
+        if (r.statut === "ok") Object.assign(v, {statut:"ok", legende:r.legende, auteur:r.auteur, pseudo:r.pseudo, hashtags:tagsOf(r.legende)});
+        else v.statut = "indisponible";
+      }
+      save(); render();
+      if (data.rateLimited || !progres){
+        attente = Math.min((attente || 15) * 2, 240);
+        updateEnrich(`TikTok ralentit les requêtes. Nouvel essai dans ${attente} s…`);
+        await sleep(attente * 1000);
+      } else attente = 0;
+    }
+    enCours = false; buildYears(); render();
+    const reste = lib.filter(v => v.statut === "brut").length;
+    if (!reste) showBanner(`Terminé : ${lib.filter(v => v.statut === "ok").length} vidéos avec légende, ${lib.filter(v => v.statut === "indisponible").length} indisponibles.`);
+  }
+  $("#enrichBtn").addEventListener("click", enrichir);
+
+  $("#saveBtn").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify({format:"videotheque-tiktok/1", videos: lib}, null, 1)], {type:"application/json"});
+    const a = Object.assign(document.createElement("a"), {href: URL.createObjectURL(blob), download: `videotheque-tiktok-${new Date().toISOString().slice(0,10)}.json`});
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  if (exemple) showBanner("Ce sont des vidéos d’exemple. Dépose ton export TikTok pour les remplacer par les tiennes.");
+  buildYears(); render();
+})();
+</script>

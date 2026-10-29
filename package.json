@@ -1,0 +1,5 @@
+{
+  "name": "videotheque-tiktok",
+  "private": true,
+  "engines": { "node": ">=18" }
+}
