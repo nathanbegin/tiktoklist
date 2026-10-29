@@ -363,7 +363,7 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
   });
 
   // ---------- Récupération des légendes (fonction serveur /api/video) ----------
-  const LOT = 30; // doit rester ≤ MAX_IDS de api/video.js
+  const LOT = 100; // doit rester ≤ MAX_IDS de api/video.js
   let enCours = false, arret = false;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 

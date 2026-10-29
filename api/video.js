@@ -1,5 +1,5 @@
 // Fonction Vercel : récupère légende, auteur et hashtags de vidéos TikTok.
-// GET /api/video?ids=7341...,7342...   (max 30 IDs par appel)
+// GET /api/video?ids=7341...,7342...   (max 100 IDs par appel)
 // Réponse : { results: { "<id>": { statut: "ok"|"indisponible"|"erreur", legende, auteur, pseudo, publie } }, rateLimited }
 //
 // Source 1 : la page publique de la vidéo (JSON __UNIVERSAL_DATA_FOR_REHYDRATION__).
@@ -7,7 +7,8 @@
 // Note : l'oEmbed de TikTok ne renvoie plus la légende ni l'auteur (vérifié en oct. 2026).
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36";
-const MAX_IDS = 30; // pages d’environ 450 Ko : garder un lot sous ~30 s
+const MAX_IDS = 100;
+const BUDGET_MS = 50000; // s’arrêter avant la limite de 60 s (vercel.json) ; les IDs non traités sont renvoyés au prochain lot
 const CONCURRENCE = 6; // requêtes simultanées vers TikTok ; plus haut = risque de blocage
 const INEXISTANTE = new Set([10204, 10216, 10217, 10222, 10101]); // supprimée, privée, restreinte…
 
@@ -94,8 +95,9 @@ module.exports = async (req, res) => {
   let rateLimited = false;
   const file = [...ids];
 
+  const debut = Date.now();
   async function travailleur() {
-    while (file.length && !rateLimited) {
+    while (file.length && !rateLimited && Date.now() - debut < BUDGET_MS) {
       const id = file.shift();
       try {
         results[id] = await enrichir(id);
@@ -108,5 +110,5 @@ module.exports = async (req, res) => {
   await Promise.all(Array.from({ length: CONCURRENCE }, travailleur));
 
   res.setHeader("Cache-Control", "no-store");
-  res.status(200).json({ results, rateLimited });
+  res.status(200).json({ results, rateLimited, restants: file.length });
 };
