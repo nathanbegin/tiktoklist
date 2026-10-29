@@ -545,7 +545,7 @@
   }
   function pas(max){ // graduation « ronde »
     const brut = max / 4, p = Math.pow(10, Math.floor(Math.log10(brut || 1))), m = brut / p;
-    return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+    return Math.max(1, (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p); // comptes entiers : jamais de demi-graduation
   }
   function montrerBulle(e, html){ bulle.innerHTML = html; bulle.hidden = false; placerBulle(e); }
   function placerBulle(e){
@@ -561,16 +561,17 @@
   // Barres verticales empilées (SVG), une seule échelle, survol = infobulle
   function barres(el, { cats, series, bulleDe, etiq }){
     if (!cats.length){ el.innerHTML = '<p class="vide">Pas encore de données.</p>'; return; }
-    const W = Math.max(360, cats.length * 18), H = 190, g = 36, d = 8, h = 8, b = 26;
+    // Dessiné à la largeur réelle du conteneur (hauteur fixe) : pas d'étirement, texte à 1:1
+    const W = Math.max(300, Math.round(el.clientWidth || el.parentElement?.clientWidth || 600)), H = 190, g = 36, d = 22, h = 8, b = 26;
     const tot = cats.map((_, i) => series.reduce((a, s) => a + s.vals[i], 0));
     const p = pas(Math.max(1, ...tot)), max = Math.ceil(Math.max(1, ...tot) / p) * p;
     const ih = H - h - b, iw = W - g - d, bw = iw / cats.length, larg = Math.max(3, Math.min(28, bw * 0.68));
     const y = v => h + ih - (v / max) * ih;
-    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(etiq)}">`;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(etiq)}">`;
     for (let v = 0; v <= max; v += p){
       svg += `<line class="grille" x1="${g}" x2="${W-d}" y1="${y(v)}" y2="${y(v)}"/><text x="${g-6}" y="${y(v)+3.5}" text-anchor="end">${nb(v)}</text>`;
     }
-    const tous = Math.ceil(cats.length / Math.floor(iw / 46)); // pas d'étiquettes qui se chevauchent
+    const tous = Math.max(1, Math.ceil(cats.length / Math.max(1, Math.floor(iw / 52)))); // pas d'étiquettes qui se chevauchent
     cats.forEach((c, i) => {
       const x = g + i * bw + (bw - larg) / 2;
       let base = 0;
@@ -584,7 +585,11 @@
         svg += `<path fill="${o.s.couleur}" d="M${x},${y1 + hh}V${y1 + r}${r ? `Q${x},${y1} ${x + r},${y1}` : ""}H${x + larg - r}${r ? `Q${x + larg},${y1} ${x + larg},${y1 + r}` : ""}V${y1 + hh}Z"/>`;
         base += o.v;
       });
-      if (i % tous === 0) svg += `<text x="${x + larg/2}" y="${H - 8}" text-anchor="middle">${esc(c)}</text>`;
+      if (i % tous === 0){
+        const cx = Math.min(x + larg/2, W - 4);
+        const ancre = cx > W - 26 ? "end" : "middle"; // la dernière étiquette ne déborde pas
+        svg += `<text x="${cx}" y="${H - 8}" text-anchor="${ancre}">${esc(c)}</text>`;
+      }
       svg += `<rect class="cible" data-i="${i}" x="${g + i*bw}" y="${h}" width="${bw}" height="${ih}"/>`;
     });
     svg += `<line x1="${g}" x2="${W-d}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)" stroke-width="1"/></svg>`;
@@ -689,6 +694,7 @@
   function tdbMaj(){ if (tdb?.open) tdbRendre(); }
   function ouvrirTdb(){ tdbRendre(); tdb.showModal(); clearInterval(tdbIntervalle); tdbIntervalle = setInterval(tdbMaj, 5000); }
   tdb.addEventListener("close", () => { clearInterval(tdbIntervalle); cacherBulle(); });
+  window.addEventListener("resize", () => { clearTimeout(tdbMaj.t); tdbMaj.t = setTimeout(tdbMaj, 150); });
   $("#tdbBtn").addEventListener("click", ouvrirTdb);
   $("#syncPill").addEventListener("click", ouvrirTdb);
   $("#t-fermer").addEventListener("click", () => tdb.close());

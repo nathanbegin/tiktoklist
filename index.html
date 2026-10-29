@@ -143,7 +143,7 @@ dialog#reglages::backdrop{background:rgb(10 12 18 / .55)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--viz-blue:#3987e5;--viz-orange:#d95926;--st-neutre:#6b6a64;--grille:#2a2e3a}}
 :root[data-theme="dark"]{--viz-blue:#3987e5;--viz-orange:#d95926;--st-neutre:#6b6a64;--grille:#2a2e3a}
 button.syncpill{border:0;cursor:pointer}
-dialog#tableau{border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--ink);padding:0;width:min(1000px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+dialog#tableau{overflow-x:hidden;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--ink);padding:0;width:min(1000px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
 dialog#tableau::backdrop{background:rgb(10 12 18 / .55)}
 .tdb{display:flex;flex-direction:column;gap:14px;padding:18px}
 .tdb-tete{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -165,7 +165,7 @@ dialog#tableau::backdrop{background:rgb(10 12 18 / .55)}
 .legende i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
 .legende b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
 .graphe{position:relative;width:100%;overflow-x:auto}
-.graphe svg{display:block;width:100%;height:auto;min-width:320px}
+.graphe svg{display:block;max-width:none}
 .graphe text{fill:var(--muted);font:11px var(--f-body);font-variant-numeric:tabular-nums}
 .graphe .grille{stroke:var(--grille);stroke-width:1}
 .graphe .cible{fill:transparent;cursor:default}
@@ -377,4 +377,4 @@ dialog#tableau::backdrop{background:rgb(10 12 18 / .55)}
     </div>
   </form>
 </dialog>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
