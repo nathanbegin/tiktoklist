@@ -356,7 +356,7 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
   });
 
   // ---------- Récupération des légendes (fonction serveur /api/oembed) ----------
-  const LOT = 20;
+  const LOT = 50; // doit rester ≤ MAX_IDS de api/oembed.js
   let enCours = false, arret = false;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -378,7 +378,9 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
     enCours = true; arret = false; updateEnrich();
     let attente = 0, echecs = 0;
     while (!arret){
-      const lot = lib.filter(v => v.statut === "brut").slice(0, LOT);
+      const lot = lib.filter(v => v.statut === "brut")
+        .sort((a, b) => dateOf(b).localeCompare(dateOf(a))) // plus récentes d’abord
+        .slice(0, LOT);
       if (!lot.length) break;
       let data;
       try {

@@ -1,10 +1,10 @@
 // Fonction Vercel : récupère légende, auteur et hashtags de vidéos TikTok via l'oEmbed public.
-// GET /api/oembed?ids=7341...,7342...   (max 20 IDs par appel)
+// GET /api/oembed?ids=7341...,7342...   (max 50 IDs par appel)
 // Réponse : { results: { "<id>": { statut: "ok"|"indisponible"|"erreur", legende, auteur, pseudo } }, rateLimited }
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36";
-const MAX_IDS = 20;
-const CONCURRENCE = 4;
+const MAX_IDS = 50;
+const CONCURRENCE = 6; // requêtes simultanées vers TikTok ; plus haut = risque de 429
 
 class RateLimited extends Error {}
 
