@@ -441,8 +441,9 @@
   $("#r-annuler").addEventListener("click", () => dlg.close());
   $("#r-form").addEventListener("submit", async ev => {
     ev.preventDefault();
-    reglages = lireForm(); ecrire(KEY + "-reglages", reglages); remplirReglages();
+    // Lire la clé AVANT de re-remplir le formulaire (sinon on l'écrase avec l'ancienne valeur).
     const cle = $("#r-cle").value.trim();
+    reglages = lireForm(); ecrire(KEY + "-reglages", reglages);
     const cleChangee = cle !== (sync.cle || "");
     if (cleChangee){ sync.cle = cle; saveSync(); }
     dlg.close();
