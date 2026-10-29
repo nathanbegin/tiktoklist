@@ -182,6 +182,13 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
   ].map(v => ({...v, hashtags: tagsOf(v.legende), statut: v.statut || "ok"}));
 
   let lib = load();
+  try {
+    if (lib && !localStorage.getItem(KEY + "-migr2")) {
+      lib.forEach(v => { if (v.statut === "indisponible") v.statut = "brut"; });
+      localStorage.setItem(KEY, JSON.stringify(lib));
+      localStorage.setItem(KEY + "-migr2", "1");
+    }
+  } catch {}
   let exemple = !lib;
   if (!lib) lib = EXEMPLES;
   let state = {q:"", src:"tout", year:"", sort:"desc", tag:"", shown:PAGE};
@@ -355,8 +362,8 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
     state.tag = state.tag === el.dataset.tag ? "" : el.dataset.tag; state.shown = PAGE; render();
   });
 
-  // ---------- Récupération des légendes (fonction serveur /api/oembed) ----------
-  const LOT = 50; // doit rester ≤ MAX_IDS de api/oembed.js
+  // ---------- Récupération des légendes (fonction serveur /api/video) ----------
+  const LOT = 30; // doit rester ≤ MAX_IDS de api/video.js
   let enCours = false, arret = false;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -384,7 +391,7 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
       if (!lot.length) break;
       let data;
       try {
-        const r = await fetch(`/api/oembed?ids=${lot.map(v => v.id).join(",")}`);
+        const r = await fetch(`/api/video?ids=${lot.map(v => v.id).join(",")}`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         data = await r.json();
         echecs = 0;
@@ -397,7 +404,7 @@ details.help pre{background:var(--bg);border:1px solid var(--line);border-radius
         const r = data.results?.[v.id];
         if (!r || r.statut === "erreur") continue; // reste « brut », sera réessayée
         progres++;
-        if (r.statut === "ok") Object.assign(v, {statut:"ok", legende:r.legende, auteur:r.auteur, pseudo:r.pseudo, hashtags:tagsOf(r.legende)});
+        if (r.statut === "ok") Object.assign(v, {statut:"ok", legende:r.legende, auteur:r.auteur, pseudo:r.pseudo, publie:r.publie, hashtags:tagsOf(r.legende)});
         else v.statut = "indisponible";
       }
       save(); render();
