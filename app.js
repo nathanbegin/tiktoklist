@@ -55,7 +55,7 @@
   const saveSync = () => { ecrire(KEY + "-sync", sync); ecrire(KEY + "-apousser", [...aPousser]); };
 
   async function api(chemin, opts = {}){
-    const r = await fetch(chemin, { ...opts, headers: { "Content-Type":"application/json", "x-cle": sync.cle || "", ...(opts.headers||{}) } });
+    const r = await fetch(chemin, { ...opts, headers: { "Content-Type":"application/json", "x-cle": encodeURIComponent((sync.cle || "").normalize("NFC").trim()), ...(opts.headers||{}) } });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { const e = new Error(d.erreur || `HTTP ${r.status}`); e.status = r.status; throw e; }
     return d;
@@ -142,9 +142,9 @@
     majEtatBd("verif");
     let e;
     try { e = await api("/api/etat"); }
-    catch { bd.active = false; majEtatBd("hors", "Serveur injoignable."); return; }
+    catch (err) { bd.active = false; majEtatBd("hors", `Serveur injoignable (${err.message}).`); return; }
     if (!e.bd){ bd.active = false; majEtatBd("hors", "Aucune base de données configurée sur le serveur."); return; }
-    if (e.cleRequise && !e.cleValide){ bd.active = false; majEtatBd("cle", sync.cle ? "Clé d’accès refusée." : "Entre la clé d’accès pour synchroniser."); return; }
+    if (e.cleRequise && !e.cleValide){ bd.active = false; majEtatBd("cle", sync.cle ? `Clé d’accès refusée (${sync.cle.trim().length} caractères envoyés). Vérifie la valeur de ACCES_CLE dans Vercel.` : "Entre la clé d’accès pour synchroniser."); return; }
     bd.active = true;
     const premiereFois = !sync.curseur;
     try {
