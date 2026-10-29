@@ -75,6 +75,10 @@ select{font:500 14px var(--f-body);padding:10px;border-radius:10px;border:1px so
 
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:16px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card{cursor:pointer;transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--accent)}
+.card:active{transform:scale(.99)}
+.card:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .card .who{display:flex;justify-content:space-between;gap:8px;align-items:baseline;min-width:0}
 .card .who a{font-weight:600;color:var(--ink);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .who a:hover{color:var(--accent)}
@@ -269,4 +273,4 @@ dialog#reglages::backdrop{background:rgb(10 12 18 / .55)}
     </div>
   </form>
 </dialog>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>

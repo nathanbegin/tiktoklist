@@ -301,7 +301,7 @@
     if (v.sources?.aimees !== undefined) pills.push('<span class="pill like">Aimée</span>');
     const cap = v.statut === "ok" ? `<p class="cap">${highlight(v.legende) || '<span class="cap vide">Sans légende</span>'}</p>`
       : `<p class="cap vide">${v.statut === "indisponible" ? "Vidéo supprimée ou privée" : "Légende pas encore récupérée"} · ID ${v.id}</p>`;
-    return `<article class="card">
+    return `<article class="card" data-url="${url}" tabindex="0" role="link" aria-label="Ouvrir la vidéo${v.auteur ? " de " + esc(v.auteur) : ""}">
       <div class="who">${v.auteur ? `<a href="https://www.tiktok.com/@${encodeURIComponent(v.pseudo||"")}" target="_blank" rel="noopener" title="${esc(user)}">${esc(v.auteur)}</a>` : `<span class="note">Créateur inconnu</span>`}<span class="note">${esc(user)}</span></div>
       ${cap}
       <div class="foot"><span style="display:flex;gap:6px;align-items:center">${pills.join("")}<span class="date">${esc(dateOf(v).slice(0,10))}</span></span>
@@ -338,6 +338,18 @@
   document.addEventListener("click", e => {
     const el = e.target.closest("[data-tag]"); if (!el) return;
     state.tag = state.tag === el.dataset.tag ? "" : el.dataset.tag; state.shown = PAGE; render();
+  });
+
+  // ---------- Clic sur une case : ouvrir la vidéo ----------
+  // Le créateur, les hashtags et « Ouvrir ↗ » gardent leur propre action.
+  function ouvrirCase(c){ if (c?.dataset.url) window.open(c.dataset.url, "_blank", "noopener"); }
+  $("#grid").addEventListener("click", e => {
+    if (e.target.closest("a, button, [data-tag]")) return;
+    if (window.getSelection()?.toString()) return; // sélection de texte : ne pas ouvrir
+    ouvrirCase(e.target.closest(".card"));
+  });
+  $("#grid").addEventListener("keydown", e => {
+    if (e.key === "Enter" && e.target.classList?.contains("card")) ouvrirCase(e.target);
   });
 
   // ---------- Mobile : cacher les hashtags en défilant vers le bas ----------
