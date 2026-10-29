@@ -527,8 +527,9 @@
   // ---------- Tableau de bord ----------
   const tdb = $("#tableau"), bulle = $("#t-bulle");
   const coul = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const heure = t => new Date(t).toLocaleTimeString("fr-CA", {hour:"2-digit", minute:"2-digit"});
-  const heureSec = t => new Date(t).toLocaleTimeString("fr-CA", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  const p2 = n => String(n).padStart(2, "0");
+  const heure = t => { const d = new Date(t); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+  const heureSec = t => { const d = new Date(t); return `${heure(t)}:${p2(d.getSeconds())}`; };
   function ilYa(t){
     if (!t) return "jamais";
     const s = Math.round((Date.now() - t) / 1000);
@@ -624,7 +625,7 @@
       ["À récupérer", nb(att), enCours ? "récupération en cours" : att ? "en attente" : "rien en attente"],
       ["Indisponibles", nb(ind), "supprimées ou privées"],
       ["Vitesse", vit ? `${nb(Math.round(vit))}/min` : "—", vit && att ? `fin estimée dans ${duree(att / vit)}` : "sur les 10 dernières minutes"],
-      ["Synchronisation", etatSync, bd.active ? `${aPousser.size ? nb(aPousser.size) + " à envoyer · " : ""}dernière ${ilYa(sync.derniere)}` : bd.message],
+      ["Synchronisation", etatSync, bd.active ? `${aPousser.size ? nb(aPousser.size) + " à envoyer · " : ""}dernière ${ilYa(sync.derniere)}` : bd.etat === "erreur" ? bd.message : "base non connectée sur cet appareil"],
     ].map(([l, v, sous]) => `<div class="tuile"><span class="lib">${l}</span><span class="val">${v}</span><span class="sous">${esc(sous)}</span></div>`).join("");
 
     // Répartition

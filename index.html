@@ -149,7 +149,8 @@ dialog#tableau::backdrop{background:rgb(10 12 18 / .55)}
 .tdb-tete{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tdb-tete h2{font-family:var(--f-display);font-weight:800;font-size:24px;margin:0}
 .tdb-tete .spacer{flex:1}
-.tuiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tuiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+@media (max-width:520px){.tuiles{grid-template-columns:1fr 1fr}.tuile .val{font-size:22px}}
 .tuile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .tuile .lib{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .tuile .val{font-family:var(--f-display);font-weight:800;font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -180,7 +181,7 @@ dialog#tableau::backdrop{background:rgb(10 12 18 / .55)}
 .hbarre .piste span{display:block;height:100%;background:var(--viz-blue);border-radius:0 4px 4px 0}
 .hbarre .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
 .journal{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13.5px;max-height:220px;overflow:auto}
-.journal li{display:grid;grid-template-columns:5.5em 7.5em 1fr;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}
+.journal li{display:grid;grid-template-columns:5em 7.5em 1fr;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}
 .journal li:last-child{border-bottom:0}
 .journal .h{font-family:var(--f-mono);color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
 .journal .ty{display:inline-flex;align-items:center;gap:6px;font-weight:600}
@@ -377,4 +378,4 @@ dialog#tableau::backdrop{background:rgb(10 12 18 / .55)}
     </div>
   </form>
 </dialog>
-<script src="app.js?v=12"></script>
+<script src="app.js?v=13"></script>
