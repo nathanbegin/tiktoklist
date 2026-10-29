@@ -52,6 +52,11 @@
   let sync = lire(KEY + "-sync", { cle:"", curseur:null, reinit:null });
   let aPousser = new Set(lire(KEY + "-apousser", []));
   let bd = { active:false, etat:"verif", message:"Vérification…" };
+  // Historique pour le tableau de bord : lots de récupération et événements de synchro
+  let histLots = lire(KEY + "-hist-lots", []);
+  let histSync = lire(KEY + "-hist-sync", []);
+  function noterLot(e){ histLots.push(e); if (histLots.length > 400) histLots = histLots.slice(-400); ecrire(KEY + "-hist-lots", histLots); tdbMaj(); }
+  function noterSync(type, n, detail){ histSync.push({t:Date.now(), type, n, detail}); if (histSync.length > 60) histSync = histSync.slice(-60); ecrire(KEY + "-hist-sync", histSync); tdbMaj(); }
   const saveSync = () => { ecrire(KEY + "-sync", sync); ecrire(KEY + "-apousser", [...aPousser]); };
 
   async function api(chemin, opts = {}){
@@ -75,17 +80,20 @@
     if (!bd.active || !aPousser.size) return;
     if (pushEnCours) return pushEnCours;
     pushEnCours = (async () => {
+      let envoyees = 0;
       try {
         const parId = new Map(lib.map(v => [v.id, v]));
         while (aPousser.size){
           const ids = [...aPousser].slice(0, 2000);
           const videos = ids.map(id => parId.get(id)).filter(Boolean);
           if (videos.length) await api("/api/bibliotheque", { method:"POST", body: JSON.stringify({ videos }) });
+          envoyees += videos.length;
           ids.forEach(id => aPousser.delete(id));
           saveSync();
         }
+        if (envoyees) noterSync("envoi", envoyees);
         majEtatBd("ok");
-      } catch (e) { majEtatBd("erreur", e.message); throw e; }
+      } catch (e) { noterSync("erreur", envoyees, e.message); majEtatBd("erreur", e.message); throw e; }
       finally { pushEnCours = null; }
     })();
     return pushEnCours;
@@ -108,7 +116,7 @@
     if (!bd.active) return;
     majEtatBd("sync");
     try {
-      let nouv = 0, premier = true;
+      let nouv = 0, recues = 0, premier = true;
       for (;;){
         const q = sync.curseur ? `?maj=${encodeURIComponent(sync.curseur.maj)}&id=${encodeURIComponent(sync.curseur.id)}` : "";
         const d = await api("/api/bibliotheque" + q);
@@ -122,6 +130,7 @@
           }
           if (d.reinit) sync.reinit = d.reinit;
         }
+        recues += d.videos.length;
         if (d.videos.length){
           if (exemple){ lib = []; exemple = false; }
           const map = new Map(lib.map(v => [v.id, v]));
@@ -133,9 +142,11 @@
       }
       save();
       if (nouv){ buildYears(); render(); }
+      noterSync("reception", nouv, recues ? `${recues} lues` : "");
+      sync.derniere = Date.now(); saveSync();
       majEtatBd("ok");
       return nouv;
-    } catch (e) { majEtatBd("erreur", e.message); throw e; }
+    } catch (e) { noterSync("erreur", 0, e.message); majEtatBd("erreur", e.message); throw e; }
   }
 
   async function connecter(){
@@ -175,6 +186,7 @@
     pastille.title = bd.message;
     $("#syncEtat").textContent = bd.message;
     $("#syncEtat").dataset.etat = etat;
+    tdbMaj();
   }
 
   // ---------- Import ----------
@@ -299,9 +311,9 @@
     const pills = [];
     if (v.sources?.favoris !== undefined) pills.push('<span class="pill fav">Favori</span>');
     if (v.sources?.aimees !== undefined) pills.push('<span class="pill like">Aimée</span>');
-    const cap = v.statut === "ok" ? `<p class="cap">${highlight(v.legende) || '<span class="cap vide">Sans légende</span>'}</p>`
+    const cap = v.statut === "ok" ? `<p class="cap${ouverts.has(v.id) ? " ouvert" : ""}">${highlight(v.legende) || '<span class="cap vide">Sans légende</span>'}</p><button class="lire" type="button" hidden>${ouverts.has(v.id) ? "Réduire" : "Lire la suite"}</button>`
       : `<p class="cap vide">${v.statut === "indisponible" ? "Vidéo supprimée ou privée" : "Légende pas encore récupérée"} · ID ${v.id}</p>`;
-    return `<article class="card" data-url="${url}" tabindex="0" role="link" aria-label="Ouvrir la vidéo${v.auteur ? " de " + esc(v.auteur) : ""}">
+    return `<article class="card" data-id="${v.id}" data-url="${url}" tabindex="0" role="link" aria-label="Ouvrir la vidéo${v.auteur ? " de " + esc(v.auteur) : ""}">
       <div class="who">${v.auteur ? `<a href="https://www.tiktok.com/@${encodeURIComponent(v.pseudo||"")}" target="_blank" rel="noopener" title="${esc(user)}">${esc(v.auteur)}</a>` : `<span class="note">Créateur inconnu</span>`}<span class="note">${esc(user)}</span></div>
       ${cap}
       <div class="foot"><span style="display:flex;gap:6px;align-items:center">${pills.join("")}<span class="date">${esc(dateOf(v).slice(0,10))}</span></span>
@@ -321,6 +333,7 @@
     renderTags(list);
     $("#grid").innerHTML = n ? list.slice(0, state.shown).map(card).join("")
       : `<div class="empty" style="grid-column:1/-1">${lib.length ? "Aucun résultat. Essaie un autre mot ou retire un filtre." : "Bibliothèque vide. Dépose ton export TikTok ci-dessus pour commencer."}</div>`;
+    marquerLongues();
     $("#moreBtn").hidden = n <= state.shown;
     $("#moreBtn").textContent = `Afficher plus (${nb(n - state.shown)} restantes)`;
     updateEnrich();
@@ -340,6 +353,25 @@
     state.tag = state.tag === el.dataset.tag ? "" : el.dataset.tag; state.shown = PAGE; render();
   });
 
+  // ---------- Descriptions longues : « Lire la suite » ----------
+  const ouverts = new Set();
+  function marquerLongues(){
+    requestAnimationFrame(() => document.querySelectorAll("#grid .card").forEach(c => {
+      const cap = c.querySelector(".cap"), b = c.querySelector(".lire");
+      if (!cap || !b) return;
+      b.hidden = !(cap.classList.contains("ouvert") || cap.scrollHeight > cap.clientHeight + 1);
+    }));
+  }
+  window.addEventListener("resize", () => { clearTimeout(marquerLongues.t); marquerLongues.t = setTimeout(marquerLongues, 150); });
+  $("#grid").addEventListener("click", e => {
+    const b = e.target.closest(".lire"); if (!b) return;
+    const c = b.closest(".card"), cap = c.querySelector(".cap");
+    const ouvrir = !cap.classList.contains("ouvert");
+    cap.classList.toggle("ouvert", ouvrir);
+    b.textContent = ouvrir ? "Réduire" : "Lire la suite";
+    if (ouvrir) ouverts.add(c.dataset.id); else ouverts.delete(c.dataset.id);
+  });
+
   // ---------- Clic sur une case : ouvrir la vidéo ----------
   // Le créateur, les hashtags et « Ouvrir ↗ » gardent leur propre action.
   function ouvrirCase(c){ if (c?.dataset.url) window.open(c.dataset.url, "_blank", "noopener"); }
@@ -354,16 +386,15 @@
 
   // ---------- Mobile : cacher les hashtags en défilant vers le bas ----------
   const barre = $(".bar"), mobile = window.matchMedia("(max-width: 640px)");
-  let dernierY = window.scrollY, rafBarre = 0;
+  let dernierY = window.scrollY;
   function majBarre(){
-    rafBarre = 0;
     const y = window.scrollY, dy = y - dernierY;
     if (!mobile.matches || y < 80) barre.classList.remove("compact");
     else if (dy > 6) barre.classList.add("compact");     // vers le bas
     else if (dy < -6) barre.classList.remove("compact"); // vers le haut
     if (Math.abs(dy) > 6 || y < 80) dernierY = y;
   }
-  window.addEventListener("scroll", () => { if (!rafBarre) rafBarre = requestAnimationFrame(majBarre); }, { passive:true });
+  window.addEventListener("scroll", majBarre, { passive:true });
   mobile.addEventListener?.("change", majBarre);
   // Toucher la recherche réaffiche les hashtags
   $("#q").addEventListener("focus", () => barre.classList.remove("compact"));
@@ -411,10 +442,12 @@
         .slice(0, R.lot);
       if (!lot.length) break;
       let data;
+      const t0 = Date.now();
       try {
         data = await api(`/api/video?ids=${lot.map(v => v.id).join(",")}&conc=${R.conc}`);
         echecs = 0;
       } catch (e) {
+        noterLot({t:Date.now(), n:lot.length, ok:0, ind:0, err:lot.length, ms:Date.now()-t0, rl:false, echec:true});
         if (e.status === 401){ updateEnrich("Clé d’accès refusée. Vérifie-la dans Réglages."); break; }
         if (++echecs >= R.essaisReseau){ updateEnrich(`Le serveur ne répond pas (${e.message}). Réessaie dans quelques minutes.`); break; }
         await attendre(Math.min(R.attenteMin, 10), `Erreur serveur (${e.message})`); continue;
@@ -429,6 +462,11 @@
         else v.statut = "indisponible";
       }
       save(); marquer(traites); render();
+      {
+        let ok = 0, ind = 0;
+        for (const id of traites){ const v = lot.find(x => x.id === id); if (v?.statut === "ok") ok++; else ind++; }
+        noterLot({t:Date.now(), n:lot.length, ok, ind, err:lot.length - ok - ind, ms:Date.now()-t0, rl:!!data.rateLimited});
+      }
       if (data.rateLimited || !progres){
         // Délai croissant (réglable) ; remis à zéro dès qu'un lot avance.
         attente = attente ? Math.min(Math.ceil(attente * R.facteur), R.attenteMax) : R.attenteMin;
@@ -484,6 +522,184 @@
   // Resynchroniser quand on revient sur l'onglet
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && bd.active && !enCours) tirer().then(() => pousser()).catch(() => {});
+  });
+
+  // ---------- Tableau de bord ----------
+  const tdb = $("#tableau"), bulle = $("#t-bulle");
+  const coul = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const heure = t => new Date(t).toLocaleTimeString("fr-CA", {hour:"2-digit", minute:"2-digit"});
+  const heureSec = t => new Date(t).toLocaleTimeString("fr-CA", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  function ilYa(t){
+    if (!t) return "jamais";
+    const s = Math.round((Date.now() - t) / 1000);
+    if (s < 60) return "à l’instant";
+    if (s < 3600) return `il y a ${Math.round(s/60)} min`;
+    if (s < 86400) return `il y a ${Math.round(s/3600)} h`;
+    return `il y a ${Math.round(s/86400)} j`;
+  }
+  function duree(min){
+    if (!isFinite(min)) return "—";
+    if (min < 1) return "< 1 min";
+    if (min < 90) return `${Math.round(min)} min`;
+    return `${Math.floor(min/60)} h ${String(Math.round(min%60)).padStart(2,"0")}`;
+  }
+  function pas(max){ // graduation « ronde »
+    const brut = max / 4, p = Math.pow(10, Math.floor(Math.log10(brut || 1))), m = brut / p;
+    return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+  }
+  function montrerBulle(e, html){ bulle.innerHTML = html; bulle.hidden = false; placerBulle(e); }
+  function placerBulle(e){
+    const w = bulle.offsetWidth, h = bulle.offsetHeight;
+    let x = e.clientX + 14, y = e.clientY - h - 12;
+    if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+    if (y < 8) y = e.clientY + 16;
+    bulle.style.left = x + "px"; bulle.style.top = y + "px";
+  }
+  const cacherBulle = () => { bulle.hidden = true; };
+  const ligneLg = (c, t) => `<span class="lg"><i style="background:${c}"></i>${t}</span>`;
+
+  // Barres verticales empilées (SVG), une seule échelle, survol = infobulle
+  function barres(el, { cats, series, bulleDe, etiq }){
+    if (!cats.length){ el.innerHTML = '<p class="vide">Pas encore de données.</p>'; return; }
+    const W = Math.max(360, cats.length * 18), H = 190, g = 36, d = 8, h = 8, b = 26;
+    const tot = cats.map((_, i) => series.reduce((a, s) => a + s.vals[i], 0));
+    const p = pas(Math.max(1, ...tot)), max = Math.ceil(Math.max(1, ...tot) / p) * p;
+    const ih = H - h - b, iw = W - g - d, bw = iw / cats.length, larg = Math.max(3, Math.min(28, bw * 0.68));
+    const y = v => h + ih - (v / max) * ih;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(etiq)}">`;
+    for (let v = 0; v <= max; v += p){
+      svg += `<line class="grille" x1="${g}" x2="${W-d}" y1="${y(v)}" y2="${y(v)}"/><text x="${g-6}" y="${y(v)+3.5}" text-anchor="end">${nb(v)}</text>`;
+    }
+    const tous = Math.ceil(cats.length / Math.floor(iw / 46)); // pas d'étiquettes qui se chevauchent
+    cats.forEach((c, i) => {
+      const x = g + i * bw + (bw - larg) / 2;
+      let base = 0;
+      const vis = series.map((s, k) => ({ s, v: s.vals[i], k })).filter(o => o.v > 0);
+      vis.forEach((o, j) => {
+        const y0 = y(base), y1 = y(base + o.v);
+        const haut = j === vis.length - 1;
+        const gap = j > 0 ? 2 : 0; // 2 px entre segments
+        const hh = Math.max(0, y0 - y1 - gap);
+        const r = haut ? Math.min(4, larg / 2, hh) : 0;
+        svg += `<path fill="${o.s.couleur}" d="M${x},${y1 + hh}V${y1 + r}${r ? `Q${x},${y1} ${x + r},${y1}` : ""}H${x + larg - r}${r ? `Q${x + larg},${y1} ${x + larg},${y1 + r}` : ""}V${y1 + hh}Z"/>`;
+        base += o.v;
+      });
+      if (i % tous === 0) svg += `<text x="${x + larg/2}" y="${H - 8}" text-anchor="middle">${esc(c)}</text>`;
+      svg += `<rect class="cible" data-i="${i}" x="${g + i*bw}" y="${h}" width="${bw}" height="${ih}"/>`;
+    });
+    svg += `<line x1="${g}" x2="${W-d}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)" stroke-width="1"/></svg>`;
+    el.innerHTML = svg;
+    el.querySelectorAll(".cible").forEach(r => {
+      r.addEventListener("pointermove", e => montrerBulle(e, bulleDe(+r.dataset.i)));
+      r.addEventListener("pointerleave", cacherBulle);
+    });
+  }
+
+  function legende(el, items){ el.innerHTML = items.map(([c, t, n]) => `<span><i style="background:${c}"></i>${t}${n !== undefined ? ` <b>${nb(n)}</b>` : ""}</span>`).join(""); }
+
+  function vitesse(){
+    const depuis = Date.now() - 10 * 60000;
+    const r = histLots.filter(l => l.t >= depuis);
+    if (r.length < 1) return null;
+    const faits = r.reduce((a, l) => a + l.ok + l.ind, 0);
+    const debut = Math.min(...r.map(l => l.t - l.ms));
+    const min = Math.max(0.5, (Date.now() - debut) / 60000);
+    return faits / min;
+  }
+
+  function tdbRendre(){
+    const C = { ok: coul("--st-good"), ind: coul("--st-neutre"), att: coul("--st-warn"), err: coul("--st-crit"), bleu: coul("--viz-blue"), orange: coul("--viz-orange") };
+    const total = lib.length, ok = lib.filter(v => v.statut === "ok").length, ind = lib.filter(v => v.statut === "indisponible").length, att = total - ok - ind;
+    const vit = vitesse();
+    const pct = n => total ? Math.round(n / total * 100) : 0;
+    const etatSync = { ok:"Synchronisée", sync:"En cours…", verif:"Vérification…", erreur:"Erreur", hors:"Locale seulement", cle:"Clé requise" }[bd.etat] || "—";
+    $("#t-tuiles").innerHTML = [
+      ["Vidéos", nb(total), exemple ? "données d’exemple" : `${nb(lib.filter(v => "favoris" in (v.sources||{})).length)} favoris · ${nb(lib.filter(v => "aimees" in (v.sources||{})).length)} aimées`],
+      ["Avec légende", nb(ok), `${pct(ok)} % de la bibliothèque`],
+      ["À récupérer", nb(att), enCours ? "récupération en cours" : att ? "en attente" : "rien en attente"],
+      ["Indisponibles", nb(ind), "supprimées ou privées"],
+      ["Vitesse", vit ? `${nb(Math.round(vit))}/min` : "—", vit && att ? `fin estimée dans ${duree(att / vit)}` : "sur les 10 dernières minutes"],
+      ["Synchronisation", etatSync, bd.active ? `${aPousser.size ? nb(aPousser.size) + " à envoyer · " : ""}dernière ${ilYa(sync.derniere)}` : bd.message],
+    ].map(([l, v, sous]) => `<div class="tuile"><span class="lib">${l}</span><span class="val">${v}</span><span class="sous">${esc(sous)}</span></div>`).join("");
+
+    // Répartition
+    $("#t-repart").innerHTML = total ? [[ok, C.ok], [ind, C.ind], [att, C.att]].filter(([n]) => n).map(([n, c]) => `<span style="flex-grow:${n};background:${c}"></span>`).join("") : "";
+    $("#t-repart").setAttribute("aria-label", `${ok} avec légende, ${ind} indisponibles, ${att} à récupérer`);
+    legende($("#t-repart-leg"), [[C.ok, "✓ Avec légende", ok], [C.ind, "⊘ Indisponibles", ind], [C.att, "◷ À récupérer", att]]);
+
+    // Lots
+    const lots = histLots.slice(-40);
+    const rl = lots.filter(l => l.rl).length;
+    $("#t-lots-note").textContent = lots.length ? `${lots.length} lots · durée moyenne ${(lots.reduce((a, l) => a + l.ms, 0) / lots.length / 1000).toFixed(1)} s${rl ? ` · ${rl} limités par TikTok` : ""}` : "";
+    legende($("#t-lots-leg"), [[C.ok, "✓ Légende obtenue"], [C.ind, "⊘ Indisponible"], [C.err, "↻ À réessayer"]]);
+    barres($("#t-lots"), {
+      etiq: "Résultats des derniers lots",
+      cats: lots.map(l => heure(l.t)),
+      series: [
+        { couleur: C.ok, vals: lots.map(l => l.ok) },
+        { couleur: C.ind, vals: lots.map(l => l.ind) },
+        { couleur: C.err, vals: lots.map(l => l.err) },
+      ],
+      bulleDe: i => { const l = lots[i]; return `<b>Lot de ${heureSec(l.t)}</b><br>${ligneLg(C.ok, `${l.ok} légendes`)}${ligneLg(C.ind, `${l.ind} indisponibles`)}${ligneLg(C.err, `${l.err} à réessayer`)}Durée : ${(l.ms/1000).toFixed(1)} s${l.rl ? "<br>TikTok a limité les requêtes" : ""}${l.echec ? "<br>Le serveur n’a pas répondu" : ""}`; },
+    });
+
+    // Par mois
+    const parMois = new Map();
+    for (const v of lib) for (const [src, d] of Object.entries(v.sources || {})){
+      const m = (d || "").slice(0, 7); if (!/^\d{4}-\d{2}$/.test(m)) continue;
+      const o = parMois.get(m) || { favoris:0, aimees:0 }; o[src] = (o[src] || 0) + 1; parMois.set(m, o);
+    }
+    let mois = [...parMois.keys()].sort();
+    if (mois.length){ // combler les mois vides, 24 derniers mois au plus
+      const tous = []; let [a, m] = mois[0].split("-").map(Number); const fin = mois[mois.length - 1];
+      for (;;){ const k = `${a}-${String(m).padStart(2,"0")}`; tous.push(k); if (k >= fin) break; if (++m > 12){ m = 1; a++; } }
+      mois = tous.slice(-24);
+    }
+    const nomMois = k => new Date(k + "-15").toLocaleDateString("fr-CA", { month:"short", year:"2-digit" }).replace(".", "");
+    legende($("#t-mois-leg"), [[C.bleu, "Favoris"], [C.orange, "Aimées"]]);
+    barres($("#t-mois"), {
+      etiq: "Vidéos sauvegardées par mois",
+      cats: mois.map(nomMois),
+      series: [
+        { couleur: C.bleu, vals: mois.map(k => parMois.get(k)?.favoris || 0) },
+        { couleur: C.orange, vals: mois.map(k => parMois.get(k)?.aimees || 0) },
+      ],
+      bulleDe: i => { const o = parMois.get(mois[i]) || {}; const lib2 = new Date(mois[i] + "-15").toLocaleDateString("fr-CA", { month:"long", year:"numeric" }); return `<b>${lib2}</b><br>${ligneLg(C.bleu, `${o.favoris || 0} favoris`)}${ligneLg(C.orange, `${o.aimees || 0} aimées`)}`; },
+    });
+
+    // Créateurs
+    const crea = new Map();
+    for (const v of lib) if (v.pseudo){ const o = crea.get(v.pseudo) || { nom: v.auteur || v.pseudo, n:0 }; o.n++; crea.set(v.pseudo, o); }
+    const top = [...crea].sort((a, b) => b[1].n - a[1].n).slice(0, 10);
+    const maxC = top[0]?.[1].n || 1;
+    $("#t-crea").innerHTML = top.length ? top.map(([p, o]) => `<button type="button" class="hbarre" data-pseudo="${esc(p)}" title="@${esc(p)}"><span class="nom">${esc(o.nom)}</span><span class="piste"><span style="width:${Math.max(2, o.n / maxC * 100)}%"></span></span><span class="n">${nb(o.n)}</span></button>`).join("")
+      : '<p class="vide">Les créateurs apparaîtront une fois les légendes récupérées.</p>';
+
+    // Journal
+    const typ = { envoi:["Envoi", C.bleu], reception:["Réception", C.orange], erreur:["Erreur", C.err] };
+    $("#t-journal").innerHTML = histSync.length ? histSync.slice().reverse().slice(0, 40).map(e => {
+      const [t, c] = typ[e.type] || [e.type, C.ind];
+      const det = e.type === "envoi" ? `${nb(e.n)} vidéos envoyées` : e.type === "reception" ? (e.n ? `${nb(e.n)} nouvelles ou mises à jour` : "rien de nouveau") + (e.detail ? ` · ${e.detail}` : "") : (e.detail || "");
+      return `<li><span class="h">${heureSec(e.t)}</span><span class="ty"><i style="background:${c}"></i>${t}</span><span class="d">${esc(det)}</span></li>`;
+    }).join("") : '<li class="vide">Aucune synchronisation pour l’instant.</li>';
+
+    $("#t-maj").textContent = `Mis à jour à ${heureSec(Date.now())}`;
+  }
+  let tdbIntervalle = null;
+  function tdbMaj(){ if (tdb?.open) tdbRendre(); }
+  function ouvrirTdb(){ tdbRendre(); tdb.showModal(); clearInterval(tdbIntervalle); tdbIntervalle = setInterval(tdbMaj, 5000); }
+  tdb.addEventListener("close", () => { clearInterval(tdbIntervalle); cacherBulle(); });
+  $("#tdbBtn").addEventListener("click", ouvrirTdb);
+  $("#syncPill").addEventListener("click", ouvrirTdb);
+  $("#t-fermer").addEventListener("click", () => tdb.close());
+  $("#t-sync").addEventListener("click", async () => {
+    if (!bd.active) await connecter(); else { try { await pousser(); await tirer(); } catch {} }
+    tdbMaj();
+  });
+  $("#t-crea").addEventListener("click", e => {
+    const b = e.target.closest("[data-pseudo]"); if (!b) return;
+    $("#q").value = "@" + b.dataset.pseudo; state.q = $("#q").value; state.shown = PAGE; render();
+    tdb.close(); window.scrollTo({ top: 0 });
   });
 
   // ---------- Écran de clé d'accès ----------

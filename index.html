@@ -137,6 +137,65 @@ dialog#reglages::backdrop{background:rgb(10 12 18 / .55)}
 .r-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .r-actions .spacer{flex:1}
 @media (max-width:440px){.r-grid{grid-template-columns:1fr 80px}}
+
+/* ---------- Tableau de bord ---------- */
+:root{--viz-blue:#2a78d6;--viz-orange:#eb6834;--st-good:#0ca30c;--st-warn:#fab219;--st-crit:#d03b3b;--st-neutre:#b4b2ab;--grille:#e6e7ec}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--viz-blue:#3987e5;--viz-orange:#d95926;--st-neutre:#6b6a64;--grille:#2a2e3a}}
+:root[data-theme="dark"]{--viz-blue:#3987e5;--viz-orange:#d95926;--st-neutre:#6b6a64;--grille:#2a2e3a}
+button.syncpill{border:0;cursor:pointer}
+dialog#tableau{border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--ink);padding:0;width:min(1000px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+dialog#tableau::backdrop{background:rgb(10 12 18 / .55)}
+.tdb{display:flex;flex-direction:column;gap:14px;padding:18px}
+.tdb-tete{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tdb-tete h2{font-family:var(--f-display);font-weight:800;font-size:24px;margin:0}
+.tdb-tete .spacer{flex:1}
+.tuiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tuile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tuile .lib{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tuile .val{font-family:var(--f-display);font-weight:800;font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}
+.tuile .sous{font-size:12.5px;color:var(--muted)}
+.panneau{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panneau h3{margin:0;font-size:15px}
+.panneau-tete{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.deux{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.repart{display:flex;height:22px;gap:2px;border-radius:6px;overflow:hidden;background:var(--line)}
+.repart span{display:block;min-width:2px;transition:flex-grow .3s}
+.legende{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.legende span{display:inline-flex;align-items:center;gap:6px}
+.legende i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+.legende b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.graphe{position:relative;width:100%;overflow-x:auto}
+.graphe svg{display:block;width:100%;height:auto;min-width:320px}
+.graphe text{fill:var(--muted);font:11px var(--f-body);font-variant-numeric:tabular-nums}
+.graphe .grille{stroke:var(--grille);stroke-width:1}
+.graphe .cible{fill:transparent;cursor:default}
+.graphe .cible:hover{fill:var(--ink);fill-opacity:.05}
+.vide{color:var(--muted);font-size:14px;padding:18px 0;text-align:center}
+.hbarres{display:flex;flex-direction:column;gap:6px}
+.hbarre{display:grid;grid-template-columns:minmax(0,9.5em) 1fr 3.2em;gap:8px;align-items:center;background:none;border:0;padding:2px 0;color:var(--ink);font:inherit;font-size:13.5px;cursor:pointer;text-align:left;border-radius:6px}
+.hbarre:hover .piste span{filter:brightness(1.1)}
+.hbarre:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.hbarre .nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbarre .piste{height:12px;background:var(--grille);border-radius:0 4px 4px 0}
+.hbarre .piste span{display:block;height:100%;background:var(--viz-blue);border-radius:0 4px 4px 0}
+.hbarre .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.journal{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13.5px;max-height:220px;overflow:auto}
+.journal li{display:grid;grid-template-columns:5.5em 7.5em 1fr;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}
+.journal li:last-child{border-bottom:0}
+.journal .h{font-family:var(--f-mono);color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.journal .ty{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.journal .ty i{width:8px;height:8px;border-radius:50%}
+.infobulle{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.45;max-width:240px;box-shadow:0 6px 20px rgb(0 0 0 / .25)}
+.infobulle b{font-weight:600}
+.infobulle .lg{display:flex;align-items:center;gap:6px}
+.infobulle .lg i{width:8px;height:8px;border-radius:2px;flex:none}
+@media (max-width:520px){.journal li{grid-template-columns:4.6em 1fr}.journal li .d{grid-column:1/-1}}
+
+/* ---------- Descriptions : 3 lignes puis « Lire la suite » ---------- */
+.card .cap{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}
+.card .cap.ouvert{display:block;-webkit-line-clamp:unset;line-clamp:unset}
+.lire{align-self:flex-start;background:none;border:0;padding:0;margin-top:-4px;font:600 13px var(--f-body);color:var(--accent);cursor:pointer}
+.lire:hover{text-decoration:underline}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -159,9 +218,10 @@ dialog#reglages::backdrop{background:rgb(10 12 18 / .55)}
   <header class="top">
     <div>
       <h1>Vidéothèque <span>TikTok</span></h1>
-      <p class="sub">Tes favoris et tes vidéos aimées, cherchables par légende, hashtag ou créateur. <span class="syncpill" id="syncPill" data-etat="verif">Synchro…</span></p>
+      <p class="sub">Tes favoris et tes vidéos aimées, cherchables par légende, hashtag ou créateur. <button type="button" class="syncpill" id="syncPill" data-etat="verif" title="Ouvrir le tableau de bord">Synchro…</button></p>
     </div>
     <div class="actions">
+      <button class="btn" id="tdbBtn" type="button">Tableau de bord</button>
       <button class="btn" id="reglagesBtn" type="button">Réglages</button>
       <button class="btn" id="saveBtn" type="button">Sauvegarder (JSON)</button>
       <span id="clearZone"><button class="btn" id="clearBtn" type="button">Vider la bibliothèque</button></span>
@@ -225,6 +285,50 @@ dialog#reglages::backdrop{background:rgb(10 12 18 / .55)}
 </div>
 
 
+<dialog id="tableau" aria-labelledby="t-titre">
+  <div class="tdb">
+    <header class="tdb-tete">
+      <h2 id="t-titre">Tableau de bord</h2>
+      <span class="note" id="t-maj"></span>
+      <span class="spacer"></span>
+      <button class="btn" id="t-sync" type="button">Synchroniser</button>
+      <button class="btn" id="t-fermer" type="button">Fermer</button>
+    </header>
+
+    <section class="tuiles" id="t-tuiles" aria-label="Indicateurs"></section>
+
+    <section class="panneau">
+      <h3>Répartition des vidéos</h3>
+      <div class="repart" id="t-repart" role="img"></div>
+      <div class="legende" id="t-repart-leg"></div>
+    </section>
+
+    <section class="panneau">
+      <div class="panneau-tete"><h3>Derniers lots de récupération</h3><span class="note" id="t-lots-note"></span></div>
+      <div class="legende" id="t-lots-leg"></div>
+      <div class="graphe" id="t-lots"></div>
+    </section>
+
+    <div class="deux">
+      <section class="panneau">
+        <h3>Vidéos sauvegardées par mois</h3>
+        <div class="legende" id="t-mois-leg"></div>
+        <div class="graphe" id="t-mois"></div>
+      </section>
+      <section class="panneau">
+        <div class="panneau-tete"><h3>Créateurs les plus présents</h3><span class="note">clic = filtrer</span></div>
+        <div class="hbarres" id="t-crea"></div>
+      </section>
+    </div>
+
+    <section class="panneau">
+      <h3>Journal de synchronisation</h3>
+      <ol class="journal" id="t-journal"></ol>
+    </section>
+  </div>
+  <div class="infobulle" id="t-bulle" role="tooltip" hidden></div>
+</dialog>
+
 <dialog id="reglages" aria-labelledby="r-titre">
   <form id="r-form" method="dialog">
     <h2 id="r-titre">Réglages</h2>
@@ -273,4 +377,4 @@ dialog#reglages::backdrop{background:rgb(10 12 18 / .55)}
     </div>
   </form>
 </dialog>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
