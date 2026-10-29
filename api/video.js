@@ -1,15 +1,18 @@
 // Fonction Vercel : récupère légende, auteur et hashtags de vidéos TikTok.
-// GET /api/video?ids=7341...,7342...   (max 100 IDs par appel)
+// GET /api/video?ids=7341...,7342...&conc=6   (max 100 IDs par appel ; conc = requêtes simultanées, 1 à 12)
 // Réponse : { results: { "<id>": { statut: "ok"|"indisponible"|"erreur", legende, auteur, pseudo, publie } }, rateLimited }
 //
 // Source 1 : la page publique de la vidéo (JSON __UNIVERSAL_DATA_FOR_REHYDRATION__).
 // Source 2 (plan B) : le lecteur intégré /embed/v2/<id>.
 // Note : l'oEmbed de TikTok ne renvoie plus la légende ni l'auteur (vérifié en oct. 2026).
 
+import { garde } from "../lib/commun.js";
+
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36";
 const MAX_IDS = 100;
 const BUDGET_MS = 50000; // s’arrêter avant la limite de 60 s (vercel.json) ; les IDs non traités sont renvoyés au prochain lot
-const CONCURRENCE = 6; // requêtes simultanées vers TikTok ; plus haut = risque de blocage
+const CONCURRENCE_DEFAUT = 6; // requêtes simultanées vers TikTok ; plus haut = risque de blocage
+const CONCURRENCE_MAX = 12;
 const INEXISTANTE = new Set([10204, 10216, 10217, 10222, 10101]); // supprimée, privée, restreinte…
 
 class RateLimited extends Error {}
@@ -79,7 +82,9 @@ async function enrichir(id) {
   return { statut: "erreur" };
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
+  if (!garde(req, res, { bd: false })) return;
+  const conc = Math.min(CONCURRENCE_MAX, Math.max(1, parseInt(req.query.conc, 10) || CONCURRENCE_DEFAUT));
   const ids = String(req.query.ids || "")
     .split(",")
     .map((s) => s.trim())
@@ -107,8 +112,8 @@ module.exports = async (req, res) => {
       }
     }
   }
-  await Promise.all(Array.from({ length: CONCURRENCE }, travailleur));
+  await Promise.all(Array.from({ length: conc }, travailleur));
 
   res.setHeader("Cache-Control", "no-store");
   res.status(200).json({ results, rateLimited, restants: file.length });
-};
+}

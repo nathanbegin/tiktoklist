@@ -1,5 +1,9 @@
 {
   "name": "videotheque-tiktok",
   "private": true,
-  "engines": { "node": ">=18" }
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0"
+  }
 }

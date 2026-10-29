@@ -1,3 +1,6 @@
 {
-  "functions": { "api/video.js": { "maxDuration": 60 } }
+  "functions": {
+    "api/video.js": { "maxDuration": 60 },
+    "api/bibliotheque.js": { "maxDuration": 30 }
+  }
 }
