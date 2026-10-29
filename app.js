@@ -144,7 +144,7 @@
     try { e = await api("/api/etat"); }
     catch (err) { bd.active = false; majEtatBd("hors", `Serveur injoignable (${err.message}).`); return; }
     if (!e.bd){ bd.active = false; majEtatBd("hors", "Aucune base de données configurée sur le serveur."); return; }
-    if (e.cleRequise && !e.cleValide){ bd.active = false; majEtatBd("cle", sync.cle ? `Clé d’accès refusée (${sync.cle.trim().length} caractères envoyés). Vérifie la valeur de ACCES_CLE dans Vercel.` : "Entre la clé d’accès pour synchroniser."); return; }
+    if (e.cleRequise && !e.cleValide){ bd.active = false; majEtatBd("cle", "Clé d’accès refusée."); ouvrirPorte("Clé d’accès refusée."); return; }
     bd.active = true;
     const premiereFois = !sync.curseur;
     try {
@@ -428,7 +428,7 @@
   // ---------- Page Réglages ----------
   const dlg = $("#reglages");
   const champs = Object.keys(DEFAUTS);
-  function remplirReglages(){ for (const k of champs) $("#r-" + k).value = reglages[k]; $("#r-cle").value = sync.cle || ""; apercu(); }
+  function remplirReglages(){ for (const k of champs) $("#r-" + k).value = reglages[k]; apercu(); }
   function lireForm(){ const o = {}; for (const k of champs) o[k] = Number($("#r-" + k).value); return borner(o); }
   function apercu(){
     const r = lireForm(); const seq = []; let a = 0;
@@ -439,19 +439,15 @@
   $("#reglagesBtn").addEventListener("click", () => { remplirReglages(); majEtatBd(bd.etat, bd.etat === "erreur" ? bd.message.replace(/^Erreur de synchro : /, "") : undefined); dlg.showModal(); });
   $("#r-defaut").addEventListener("click", () => { for (const k of champs) $("#r-" + k).value = DEFAUTS[k]; apercu(); });
   $("#r-annuler").addEventListener("click", () => dlg.close());
-  $("#r-form").addEventListener("submit", async ev => {
+  $("#r-form").addEventListener("submit", ev => {
     ev.preventDefault();
-    // Lire la clé AVANT de re-remplir le formulaire (sinon on l'écrase avec l'ancienne valeur).
-    const cle = $("#r-cle").value.trim();
     reglages = lireForm(); ecrire(KEY + "-reglages", reglages);
-    const cleChangee = cle !== (sync.cle || "");
-    if (cleChangee){ sync.cle = cle; saveSync(); }
     dlg.close();
     showBanner("Réglages enregistrés.");
     updateEnrich();
-    if (cleChangee || !bd.active) await connecter();
     if (bd.active) api("/api/reglages", { method:"PUT", body: JSON.stringify({ reglages }) }).catch(e => majEtatBd("erreur", e.message));
   });
+  $("#r-changerCle").addEventListener("click", () => { dlg.close(); ouvrirPorte(); });
   $("#r-sync").addEventListener("click", async () => {
     if (!bd.active) await connecter();
     else { try { await pousser(); await tirer(); } catch {} }
@@ -462,7 +458,59 @@
     if (document.visibilityState === "visible" && bd.active && !enCours) tirer().then(() => pousser()).catch(() => {});
   });
 
+  // ---------- Écran de clé d'accès ----------
+  const porte = $("#gate"), gCle = $("#g-cle"), gErr = $("#g-erreur");
+  function ouvrirPorte(message){
+    gCle.value = sync.cle || "";
+    gErr.hidden = !message; gErr.textContent = message || "";
+    porte.hidden = false;
+    setTimeout(() => gCle.focus(), 50);
+  }
+  async function etatAvec(cle){
+    const r = await fetch("/api/etat", { cache:"no-store", headers: { "x-cle": encodeURIComponent((cle || "").normalize("NFC").trim()) } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+  $("#g-voir").addEventListener("click", e => {
+    const voir = gCle.type === "password";
+    gCle.type = voir ? "text" : "password";
+    e.currentTarget.textContent = voir ? "Masquer" : "Afficher";
+    e.currentTarget.setAttribute("aria-pressed", voir);
+  });
+  $("#g-form").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const cle = gCle.value.trim();
+    const bouton = $("#g-ok"); bouton.disabled = true; bouton.textContent = "Vérification…";
+    try {
+      const e = await etatAvec(cle);
+      if (e.cleRequise && !e.cleValide){
+        gErr.textContent = `Clé refusée (${[...cle].length} caractères). Les majuscules comptent. Vérifie la valeur de ACCES_CLE dans Vercel, puis redéploie si tu l’as changée.`;
+        gErr.hidden = false; gCle.select();
+        return;
+      }
+      sync.cle = cle; saveSync();
+      porte.hidden = true;
+      await connecter();
+    } catch (err) {
+      gErr.textContent = `Serveur injoignable (${err.message}). Vérifie ta connexion et réessaie.`;
+      gErr.hidden = false;
+    } finally { bouton.disabled = false; bouton.textContent = "Entrer"; }
+  });
+  $("#g-local").addEventListener("click", () => { porte.hidden = true; majEtatBd("hors", "Synchronisation désactivée sur cet appareil. Utilise « Changer la clé d’accès » dans Réglages pour la réactiver."); });
+
+  async function demarrer(){
+    try {
+      const e = await etatAvec(sync.cle);
+      if (e.cleRequise && !e.cleValide){
+        majEtatBd("cle", "Clé d’accès requise");
+        ouvrirPorte(sync.cle ? "La clé enregistrée sur cet appareil n’est plus acceptée." : "");
+        return;
+      }
+    } catch {}
+    connecter();
+  }
+
   if (exemple) showBanner("Ce sont des vidéos d’exemple. Dépose ton export TikTok pour les remplacer par les tiennes.");
   buildYears(); render(); remplirReglages();
-  connecter();
+  demarrer();
 })();
