@@ -692,7 +692,7 @@
   }
   let tdbIntervalle = null;
   function tdbMaj(){ if (tdb?.open) tdbRendre(); }
-  function ouvrirTdb(){ tdbRendre(); tdb.showModal(); clearInterval(tdbIntervalle); tdbIntervalle = setInterval(tdbMaj, 5000); }
+  function ouvrirTdb(){ tdb.showModal(); tdbRendre(); clearInterval(tdbIntervalle); tdbIntervalle = setInterval(tdbMaj, 5000); }
   tdb.addEventListener("close", () => { clearInterval(tdbIntervalle); cacherBulle(); });
   window.addEventListener("resize", () => { clearTimeout(tdbMaj.t); tdbMaj.t = setTimeout(tdbMaj, 150); });
   $("#tdbBtn").addEventListener("click", ouvrirTdb);
